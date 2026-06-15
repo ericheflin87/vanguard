@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VANGUARD — Chapter Three: Augmentation</title>
+<style>
+  :root{
+    --amber:#ffb36b; --steel:#9fb4c7; --ink:#0a0e14; --blood:#c84b31; --bone:#e8e2d4;
+    --shield:#6fd4ff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--ink);
+    font-family:"Segoe UI",system-ui,sans-serif;color:var(--bone)}
+  #game{position:absolute;inset:0}
+  canvas{display:block}
+
+  #vignette{position:absolute;inset:0;pointer-events:none;z-index:5;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%);}
+  #grain{position:absolute;inset:0;pointer-events:none;z-index:6;opacity:.03;}
+  body.nograin #grain{display:none}
+
+  .bar{position:absolute;left:0;width:100%;height:0;background:#000;z-index:8;transition:height .8s ease}
+  #barTop{top:0} #barBot{bottom:0}
+  body.cine #barTop, body.cine #barBot{height:11vh}
+
+  #archive{position:absolute;top:14px;left:16px;z-index:10;
+    font-family:"Consolas","Courier New",monospace;font-size:11px;letter-spacing:.14em;
+    color:rgba(232,226,212,.55);text-transform:uppercase;line-height:1.7;pointer-events:none}
+  #archive b{color:var(--amber);font-weight:600}
+
+  #objective{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:10;
+    font-family:"Consolas",monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--bone);background:rgba(10,14,20,.55);border-left:3px solid var(--amber);
+    padding:8px 16px;opacity:0;transition:opacity .5s;pointer-events:none;max-width:80vw;text-align:center}
+  #objective.show{opacity:1}
+
+  #timer{position:absolute;top:16px;right:18px;z-index:10;font-family:"Consolas",monospace;
+    font-size:26px;letter-spacing:.1em;color:var(--bone);opacity:0;transition:opacity .4s;
+    pointer-events:none;text-shadow:0 0 18px rgba(0,0,0,.8)}
+  #timer.show{opacity:1}
+  #timer.late{color:var(--blood)}
+
+  /* SHIELD HUD */
+  #shieldWrap{position:absolute;top:54px;left:50%;transform:translateX(-50%);z-index:10;
+    width:min(340px,60vw);opacity:0;transition:opacity .8s;pointer-events:none}
+  #shieldWrap.show{opacity:1}
+  #shieldLabel{font-family:"Consolas",monospace;font-size:10px;letter-spacing:.3em;
+    color:var(--shield);text-transform:uppercase;text-align:center;margin-bottom:4px;
+    text-shadow:0 0 8px rgba(111,212,255,.6)}
+  #shieldBar{height:9px;background:rgba(111,212,255,.12);border:1px solid rgba(111,212,255,.45);
+    padding:1px}
+  #shieldFill{height:100%;width:100%;background:linear-gradient(90deg,#3fa8d8,#8fe4ff);
+    box-shadow:0 0 12px rgba(111,212,255,.7);transition:width .12s linear}
+  #shieldWrap.low #shieldFill{background:linear-gradient(90deg,#c84b31,#ff8a5e)}
+  #shieldWrap.low #shieldLabel{color:var(--blood)}
+
+  #hitfx{position:absolute;inset:0;z-index:7;pointer-events:none;opacity:0;
+    background:radial-gradient(ellipse at center, transparent 40%, rgba(111,212,255,.35) 100%)}
+  #hitfx.red{background:radial-gradient(ellipse at center, transparent 35%, rgba(200,75,49,.5) 100%)}
+
+  #prompt{position:absolute;left:50%;top:62%;transform:translate(-50%,-50%);z-index:10;
+    font-family:"Consolas",monospace;font-size:14px;letter-spacing:.2em;color:var(--amber);
+    text-transform:uppercase;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center}
+  #prompt.show{opacity:1}
+  #countdown{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:10;
+    font-family:"Consolas",monospace;font-size:90px;font-weight:700;color:var(--bone);
+    opacity:0;pointer-events:none;text-shadow:0 0 40px rgba(255,179,107,.4)}
+
+  #dot{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;
+    background:rgba(232,226,212,.8);z-index:9;pointer-events:none;display:none}
+  body.playing #dot{display:block}
+
+  #dlg{position:absolute;left:50%;bottom:13vh;transform:translateX(-50%);width:min(720px,90vw);
+    z-index:12;background:rgba(8,11,17,.88);border:1px solid rgba(159,180,199,.25);
+    border-left:4px solid var(--amber);padding:18px 24px 16px;opacity:0;transition:opacity .35s;
+    pointer-events:none}
+  #dlg.show{opacity:1}
+  #dlgWho{font-family:"Consolas",monospace;font-size:11px;letter-spacing:.22em;color:var(--amber);
+    text-transform:uppercase;margin-bottom:8px}
+  #dlgText{font-size:17px;line-height:1.6;min-height:3.2em;color:var(--bone)}
+  #dlgNext{font-family:"Consolas",monospace;font-size:11px;letter-spacing:.18em;color:rgba(232,226,212,.45);
+    text-align:right;margin-top:8px;text-transform:uppercase}
+
+  .screen{position:absolute;inset:0;z-index:20;background:var(--ink);display:flex;
+    flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    transition:opacity 1.2s ease}
+  .screen.hidden{opacity:0;pointer-events:none}
+  .eyebrow{font-family:"Consolas",monospace;font-size:12px;letter-spacing:.35em;
+    color:var(--blood);text-transform:uppercase;margin-bottom:18px}
+  h1{font-size:clamp(40px,7vw,84px);font-weight:200;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--bone);margin-bottom:6px;padding-left:.32em}
+  .chapter{font-family:"Consolas",monospace;font-size:15px;letter-spacing:.3em;color:var(--amber);
+    text-transform:uppercase;margin-bottom:44px}
+  .btn{font-family:"Consolas",monospace;font-size:14px;letter-spacing:.25em;text-transform:uppercase;
+    color:var(--ink);background:var(--amber);border:none;padding:15px 44px;cursor:pointer;
+    transition:all .2s;margin:6px}
+  .btn:hover{background:var(--bone)}
+  .btn.ghost{background:transparent;color:var(--steel);border:1px solid rgba(159,180,199,.4)}
+  .btn.ghost:hover{color:var(--bone);border-color:var(--bone)}
+  .controls{margin-top:38px;font-family:"Consolas",monospace;font-size:12px;letter-spacing:.12em;
+    color:rgba(159,180,199,.7);line-height:2.1}
+  .controls em{color:var(--bone);font-style:normal}
+
+  #narration{position:absolute;inset:0;z-index:18;background:#000;display:none;
+    align-items:center;justify-content:center;padding:8vw}
+  #narrText{font-size:clamp(17px,2.2vw,24px);font-weight:300;line-height:2;max-width:760px;
+    text-align:center;color:var(--bone);letter-spacing:.02em}
+  #narrSkip{position:absolute;bottom:28px;right:34px;font-family:"Consolas",monospace;
+    font-size:11px;letter-spacing:.2em;color:rgba(232,226,212,.4);text-transform:uppercase}
+
+  #fade{position:absolute;inset:0;background:#000;z-index:16;opacity:1;pointer-events:none;
+    transition:opacity 1.4s ease}
+  #whiteout{position:absolute;inset:0;background:#fff;z-index:17;opacity:0;pointer-events:none;
+    transition:opacity .3s ease}
+  #toast{position:absolute;left:50%;top:30%;transform:translateX(-50%);z-index:14;
+    font-family:"Consolas",monospace;font-size:15px;letter-spacing:.15em;color:var(--blood);
+    text-transform:uppercase;background:rgba(0,0,0,.7);padding:14px 26px;opacity:0;
+    transition:opacity .4s;pointer-events:none;border:1px solid rgba(200,75,49,.4)}
+  #toast.show{opacity:1}
+  #toast.good{color:var(--amber);border-color:rgba(255,179,107,.4)}
+
+  #pause{position:absolute;inset:0;z-index:30;background:rgba(5,8,13,.92);display:none;
+    flex-direction:column;align-items:center;justify-content:center}
+  #pause.open{display:flex}
+  #pause h2{font-family:"Consolas",monospace;font-weight:400;font-size:20px;letter-spacing:.4em;
+    text-transform:uppercase;color:var(--bone);margin-bottom:24px}
+  #bindPanel{width:min(540px,92vw);background:rgba(10,14,20,.6);
+    border:1px solid rgba(159,180,199,.2);padding:22px 26px;margin-bottom:20px;
+    max-height:52vh;overflow-y:auto}
+  #bindPanel h3{font-family:"Consolas",monospace;font-size:12px;letter-spacing:.3em;
+    text-transform:uppercase;color:var(--steel);margin-bottom:14px;font-weight:400}
+  .bindRow{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 4px;border-bottom:1px solid rgba(159,180,199,.1);cursor:pointer}
+  .bindRow:hover{background:rgba(255,179,107,.06)}
+  .bindName{font-size:14px;letter-spacing:.06em;color:var(--bone)}
+  .bindKey{font-family:"Consolas",monospace;font-size:13px;letter-spacing:.1em;
+    color:var(--amber);background:rgba(255,179,107,.1);border:1px solid rgba(255,179,107,.3);
+    padding:4px 14px;min-width:110px;text-align:center}
+  .bindRow.listening .bindKey{color:var(--ink);background:var(--amber);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.6}}
+  #bindHint{font-family:"Consolas",monospace;font-size:11px;letter-spacing:.15em;
+    color:rgba(159,180,199,.6);text-transform:uppercase;margin-top:12px;text-align:center;line-height:1.9}
+  .optRow{display:flex;justify-content:space-between;align-items:center;padding:12px 4px 2px}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="whiteout"></div>
+<div id="fade"></div>
+<div id="hitfx"></div>
+<div id="vignette"></div>
+<canvas id="grain"></canvas>
+<div class="bar" id="barTop"></div>
+<div class="bar" id="barBot"></div>
+<div id="dot"></div>
+
+<div id="archive">archival playback // directorate of strategic sciences<br>
+subject <b>V-04</b> // memory entry <b>003</b> // camp caldera medical annex, planet veld</div>
+
+<div id="objective"></div>
+<div id="timer">00.0</div>
+<div id="shieldWrap"><div id="shieldLabel">Energy Shield</div>
+  <div id="shieldBar"><div id="shieldFill"></div></div></div>
+<div id="prompt"></div>
+<div id="countdown"></div>
+<div id="toast"></div>
+
+<div id="dlg">
+  <div id="dlgWho"></div>
+  <div id="dlgText"></div>
+  <div id="dlgNext">CONTINUE</div>
+</div>
+
+<div id="narration"><div id="narrText"></div><div id="narrSkip">CONTINUE</div></div>
+
+<div class="screen" id="title">
+  <div class="eyebrow">classified // eyes only</div>
+  <h1>Vanguard</h1>
+  <div class="chapter">Chapter Three — Augmentation</div>
+  <div>
+    <button class="btn" id="startBtn">Begin Playback</button>
+    <button class="btn ghost" id="titleBindBtn">Controls</button>
+  </div>
+  <div class="controls" id="ctrlSummary"></div>
+</div>
+
+<div class="screen hidden" id="endScreen">
+  <div class="eyebrow">entry 003 — sealed</div>
+  <h1 style="font-size:clamp(28px,4.5vw,52px)">Chapter Three Complete</h1>
+  <div class="chapter" style="margin-bottom:30px">Next — Chapter Four: First Contact</div>
+  <button class="btn" id="replayBtn">Replay Memory</button>
+</div>
+
+<div id="pause">
+  <h2>Paused</h2>
+  <div id="bindPanel">
+    <h3>Key Bindings — click a row, press any key or mouse button</h3>
+    <div id="bindList"></div>
+    <div class="optRow">
+      <span class="bindName">Film grain</span>
+      <span class="bindKey" id="grainToggle" style="cursor:pointer">ON</span>
+    </div>
+    <div id="bindHint">side mouse buttons supported (mouse 4 / mouse 5)<br>
+      ESC cancels a rebind · bindings last for this session</div>
+  </div>
+  <div>
+    <button class="btn" id="resumeBtn">Resume</button>
+    <button class="btn ghost" id="bindResetBtn">Reset Defaults</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   VANGUARD — Chapter Three: Augmentation
+   Age 14. The procedure. The new body. The first shield.
+   New: mouse-button binding, grain toggle, shield system,
+   augmented movement, projectile turrets.
+   ============================================================ */
+const $ = id => document.getElementById(id);
+
+// keep browser back/forward from leaving the game (side mouse buttons)
+history.pushState(null,'',location.href);
+addEventListener('popstate',()=>history.pushState(null,'',location.href));
+
+// ================= BINDINGS (keyboard + mouse) =================
+const DEFAULT_BINDS = {
+  forward:'KeyW', back:'KeyS', left:'KeyA', right:'KeyD',
+  jump:'Space', sprint:'ShiftLeft', melee:'KeyF', interact:'KeyE'
+};
+const BIND_LABELS = {
+  forward:'Move forward', back:'Move back', left:'Strafe left', right:'Strafe right',
+  jump:'Jump', sprint:'Sprint', melee:'Melee strike', interact:'Interact / advance'
+};
+let binds = Object.assign({}, DEFAULT_BINDS);
+function keyLabel(code){
+  if(!code) return '—';
+  if(code==='Mouse0') return 'LMB';
+  if(code==='Mouse1') return 'MMB';
+  if(code==='Mouse2') return 'RMB';
+  if(code==='Mouse3') return 'MOUSE 4';
+  if(code==='Mouse4') return 'MOUSE 5';
+  if(code==='Space') return 'SPACE';
+  if(code.startsWith('Key')) return code.slice(3);
+  if(code.startsWith('Digit')) return code.slice(5);
+  if(code==='ShiftLeft') return 'L-SHIFT'; if(code==='ShiftRight') return 'R-SHIFT';
+  if(code==='ControlLeft') return 'L-CTRL'; if(code==='ControlRight') return 'R-CTRL';
+  if(code==='AltLeft') return 'L-ALT'; if(code==='AltRight') return 'R-ALT';
+  return code.toUpperCase();
+}
+let listeningAction=null;
+function assignBind(code){
+  Object.keys(binds).forEach(a=>{ if(binds[a]===code) binds[a]=null; });
+  binds[listeningAction]=code;
+  listeningAction=null; buildBindList();
+}
+function buildBindList(){
+  const box=$('bindList'); box.innerHTML='';
+  Object.keys(DEFAULT_BINDS).forEach(act=>{
+    const row=document.createElement('div'); row.className='bindRow'; row.dataset.act=act;
+    row.innerHTML=`<span class="bindName">${BIND_LABELS[act]}</span>
+      <span class="bindKey">${keyLabel(binds[act])}</span>`;
+    row.onclick=(e)=>{
+      e.stopPropagation();
+      document.querySelectorAll('.bindRow').forEach(r=>r.classList.remove('listening'));
+      listeningAction=act; row.classList.add('listening');
+      row.querySelector('.bindKey').textContent='PRESS INPUT';
+    };
+    box.appendChild(row);
+  });
+  updateCtrlSummary();
+}
+function updateCtrlSummary(){
+  $('ctrlSummary').innerHTML =
+    `<em>${keyLabel(binds.forward)}${keyLabel(binds.left)}${keyLabel(binds.back)}${keyLabel(binds.right)}</em> move
+     &nbsp;·&nbsp; <em>MOUSE</em> look &nbsp;·&nbsp; <em>${keyLabel(binds.sprint)}</em> sprint
+     &nbsp;·&nbsp; <em>${keyLabel(binds.jump)}</em> jump<br>
+     <em>${keyLabel(binds.melee)}</em> melee &nbsp;·&nbsp; <em>${keyLabel(binds.interact)}</em> interact
+     &nbsp;·&nbsp; <em>ESC</em> pause &nbsp;·&nbsp; mouse buttons bindable, incl. side buttons`;
+}
+buildBindList();
+
+// grain toggle
+let grainOn=true;
+$('grainToggle').onclick=(e)=>{
+  e.stopPropagation();
+  grainOn=!grainOn;
+  document.body.classList.toggle('nograin',!grainOn);
+  $('grainToggle').textContent=grainOn?'ON':'OFF';
+};
+
+// ================= RENDERER / SCENE =================
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+$('game').appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,.05,700);
+scene.add(camera);
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// subtle grain
+(function grain(){
+  const c=$('grain'); c.width=256; c.height=256;
+  const g=c.getContext('2d');
+  (function f(){
+    const img=g.createImageData(256,256);
+    for(let i=0;i<img.data.length;i+=4){
+      const v=Math.random()*255|0;
+      img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=255;
+    }
+    g.putImageData(img,0,0);setTimeout(f,110);
+  })();
+  c.style.width='100%';c.style.height='100%';
+})();
+
+// ================= AUDIO =================
+let AC=null,windGain=null;
+function initAudio(){
+  if(AC)return;
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  const len=AC.sampleRate*2,buf=AC.createBuffer(1,len,AC.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const src=AC.createBufferSource();src.buffer=buf;src.loop=true;
+  const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=380;
+  windGain=AC.createGain();windGain.gain.value=.05;
+  src.connect(lp);lp.connect(windGain);windGain.connect(AC.destination);
+  src.start();
+}
+function blip(f,du,v,t){
+  if(!AC)return;
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=t||'sine';o.frequency.value=f;
+  g.gain.setValueAtTime(v||.12,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+(du||.15));
+  o.connect(g);g.connect(AC.destination);
+  o.start();o.stop(AC.currentTime+(du||.15)+.02);
+}
+function thud(){blip(90,.18,.2,'triangle');blip(60,.25,.15,'sine');}
+function whoosh(){
+  if(!AC)return;
+  const len=AC.sampleRate*.18,buf=AC.createBuffer(1,len,AC.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.sin(Math.PI*i/len);
+  const s=AC.createBufferSource();s.buffer=buf;
+  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=900;
+  const g=AC.createGain();g.gain.value=.12;
+  s.connect(bp);bp.connect(g);g.connect(AC.destination);s.start();
+}
+function zap(){blip(1800,.12,.1,'sawtooth');blip(400,.18,.08,'square');}
+function shieldHitSnd(){blip(2200,.08,.08,'sine');blip(1100,.14,.06,'triangle');}
+function shieldDownSnd(){blip(300,.5,.16,'sawtooth');}
+function shieldUpSnd(){blip(600,.1,.06);blip(900,.12,.06);blip(1400,.2,.07);}
+
+// ================= WORLD: CAMP CALDERA, LATE DAY (6 yrs later) =================
+const mat=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.85,metalness:.05},o||{}));
+const worldGroup=new THREE.Group();scene.add(worldGroup);
+function W(m){worldGroup.add(m);return m;}
+
+{
+  const g=new THREE.Mesh(new THREE.PlaneGeometry(400,400),mat(0x5e584c,{roughness:1}));
+  g.rotation.x=-Math.PI/2;g.receiveShadow=true;W(g);
+}
+for(let i=0;i<10;i++){
+  const a=(i/10)*6.283,r=160+Math.random()*30;
+  const m=new THREE.Mesh(new THREE.ConeGeometry(28+Math.random()*22,36+Math.random()*30,6),
+    mat(0x4a5060,{roughness:1}));
+  m.position.set(Math.cos(a)*r,0,Math.sin(a)*r);W(m);
+}
+function block(w,h,d,x,z,c,ry){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c));
+  m.position.set(x,h/2,z);m.rotation.y=ry||0;
+  m.castShadow=true;m.receiveShadow=true;W(m);return m;
+}
+block(26,6,10,-42,-30,0x6b7280);
+block(26,6,10,-42,-46,0x646b78);
+block(18,8,14,48,-10,0x707888);
+block(14,7,10,30,8,0x7a8294);      // medical annex
+block(12,5,8,44,-44,0x676e7c);
+function tower(x,z){
+  block(1.2,9,1.2,x,z,0x55607a);
+  block(4,2.4,4,x,z,0x66718a).position.y=9.6;
+}
+tower(-60,10);tower(60,-70);tower(-60,-80);tower(58,18);
+
+const hemi=new THREE.HemisphereLight(0xfff0d8,0x3a3e34,.7);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xffe0b0,1.1);
+sun.position.set(-50,40,20);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-80;sun.shadow.camera.right=80;
+sun.shadow.camera.top=80;sun.shadow.camera.bottom=-80;
+scene.add(sun);
+scene.background=new THREE.Color(0xc8a878);
+scene.fog=new THREE.Fog(0xc8a878,90,280);
+
+// ================= SOLIDS =================
+const solids=[];
+function solid(w,h,d,x,y,z,c){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c||0x8a8276));
+  m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;W(m);
+  solids.push({x1:x-w/2,x2:x+w/2,y1:y,y2:y+h,z1:z-d/2,z2:z+d/2,mesh:m});
+  return m;
+}
+function solidTopAt(x,z,feetY){
+  let top=0;
+  for(const s of solids){
+    if(x>s.x1-.05&&x<s.x2+.05&&z>s.z1-.05&&z<s.z2+.05&&s.y2<=feetY+.06)
+      top=Math.max(top,s.y2);
+  }
+  return top;
+}
+
+// the old obstacle course — unchanged in six years; you are not
+solid(.4,1.6,64,-4.2,0,-30,0x6b6458);
+solid(.4,1.6,64, 4.2,0,-30,0x6b6458);
+solid(.5,3.4,.5,-4,0,1,0x55607a);solid(.5,3.4,.5,4,0,1,0x55607a);
+solid(8.5,.4,.5,0,3.4,1,0x55607a);
+[-10,-16,-22].forEach(z=>solid(7.5,.55,.45,0,0,z,0xa0563c));
+solid(3.5,.6,2.4,0,0,-29,0x7d7466);
+solid(3.5,1.2,3.2,0,0,-32.6,0x877e6f);
+solid(3.5,1.2,3.2,0,0,-37.9,0x877e6f);
+solid(2.2,.4,1.6,0,0,-44.2,0x7d7466);
+solid(.5,.8,11,0,0,-50.5,0x9a8f7c);
+{
+  const mud=new THREE.Mesh(new THREE.PlaneGeometry(7.6,11.5),mat(0x32302a,{roughness:1}));
+  mud.rotation.x=-Math.PI/2;mud.position.set(0,.02,-50.5);W(mud);
+}
+const bell=new THREE.Group();
+{
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,2.6,8),mat(0x55607a));
+  post.position.y=1.3;bell.add(post);
+  const cap=new THREE.Mesh(new THREE.SphereGeometry(.32,12,10,0,6.3,0,1.8),
+    mat(0xd9b13b,{metalness:.6,roughness:.35}));
+  cap.position.y=2.45;bell.add(cap);
+}
+bell.position.set(0,0,-62);W(bell);
+const BELL=new THREE.Vector3(0,0,-62);
+
+// combat pit (turret test arena)
+const PIT=new THREE.Vector3(22,0,-28);
+{
+  const ring=new THREE.Mesh(new THREE.RingGeometry(8.5,9.2,40),mat(0x46413a,{roughness:1}));
+  ring.rotation.x=-Math.PI/2;ring.position.set(PIT.x,.03,PIT.z);W(ring);
+  const fl=new THREE.Mesh(new THREE.CircleGeometry(8.5,40),mat(0x504a40,{roughness:1}));
+  fl.rotation.x=-Math.PI/2;fl.position.set(PIT.x,.02,PIT.z);W(fl);
+}
+// cover blocks in the pit
+solid(1.8,1.1,1.2,PIT.x-3,0,PIT.z+1,0x5c564c);
+solid(1.8,1.1,1.2,PIT.x+3.4,0,PIT.z-1.5,0x5c564c);
+
+// ================= DREAM SPACE (memory of Calder's Hope) =================
+const dream=new THREE.Group();dream.position.set(2000,0,0);dream.visible=false;scene.add(dream);
+{
+  const g=new THREE.Mesh(new THREE.PlaneGeometry(300,300),
+    mat(0x9a8a4e,{roughness:1,emissive:0x4a3a10,emissiveIntensity:.3}));
+  g.rotation.x=-Math.PI/2;dream.add(g);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,5,8),mat(0xb8b2a3));
+  pole.position.set(0,2.5,-45);dream.add(pole);
+  const cloth=new THREE.Mesh(new THREE.PlaneGeometry(1.7,1),
+    mat(0xc84b31,{side:THREE.DoubleSide,emissive:0x802510,emissiveIntensity:.5}));
+  cloth.position.set(.9,4.3,-45);dream.add(cloth);
+  dream.userData.cloth=cloth;
+  const dl=new THREE.PointLight(0xffd9a0,1.2,80);dl.position.set(0,12,-30);dream.add(dl);
+}
+
+// ================= CHARACTERS =================
+function person(coat,skin,scale){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.26*scale,.34*scale,1.3*scale,10),mat(coat));
+  body.position.y=.85*scale;body.castShadow=true;g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.17*scale,12,12),mat(skin));
+  head.position.y=1.68*scale;head.castShadow=true;g.add(head);
+  return g;
+}
+const voss=person(0x6e7480,0xcfa88a,1.05);voss.position.set(28,0,2);W(voss);
+const vela=person(0x7a5a8a,0xc89070,1.0);vela.position.set(26,0,4);vela.visible=false;W(vela);
+const krell=person(0x3a4452,0xb08a64,1.25);krell.position.set(-2,0,6);krell.visible=false;W(krell);
+
+// ================= TURRETS + BOLTS =================
+const turrets=[];
+function turret(x,z){
+  const g=new THREE.Group();
+  for(let i=0;i<3;i++){
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,1.1,6),mat(0x3a3f4a));
+    const a=i*2.094;
+    leg.position.set(Math.cos(a)*.35,.5,Math.sin(a)*.35);
+    leg.rotation.z=Math.cos(a)*.4;leg.rotation.x=-Math.sin(a)*.4;
+    g.add(leg);
+  }
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.55,.4,.7),
+    mat(0x2e333d,{metalness:.5,roughness:.4}));
+  head.position.y=1.2;head.castShadow=true;g.add(head);
+  const eye=new THREE.Mesh(new THREE.SphereGeometry(.08,8,8),
+    new THREE.MeshBasicMaterial({color:0xff8830}));
+  eye.position.set(0,1.2,.4);g.add(eye);
+  g.position.set(x,0,z);
+  g.userData={hp:3,head,eye,cool:1+Math.random(),dead:false};
+  W(g);turrets.push(g);
+}
+const bolts=[];
+function fireBolt(from,to){
+  const b=new THREE.Mesh(new THREE.SphereGeometry(.13,8,8),
+    new THREE.MeshBasicMaterial({color:0x6fd4ff}));
+  b.position.copy(from);
+  const v=new THREE.Vector3().subVectors(to,from).normalize().multiplyScalar(13);
+  b.userData={v,life:0};
+  scene.add(b);bolts.push(b);
+  zap();
+}
+
+// ================= VIEWMODEL (augmented fists) =================
+const vm=new THREE.Group();
+{
+  const fistR=new THREE.Mesh(new THREE.BoxGeometry(.11,.09,.14),mat(0x8a705a));
+  fistR.position.set(.3,-.28,-.5);vm.add(fistR);
+  const fistL=new THREE.Mesh(new THREE.BoxGeometry(.11,.09,.14),mat(0x8a705a));
+  fistL.position.set(-.3,-.3,-.55);vm.add(fistL);
+  vm.userData={fistR,fistL};
+}
+vm.visible=false;camera.add(vm);
+let swingT=-1;
+
+// ================= PLAYER =================
+const AUG={walk:5.4,sprint:11.5,jump:7.6,eye:1.45};
+const PRE={walk:3.6,sprint:6.4,jump:5.1,eye:1.3};
+let stats=Object.assign({},PRE);
+const player={pos:new THREE.Vector3(0,0,12),y:0,vy:0,grounded:true,
+  yaw:Math.PI,pitch:0,bob:0,canMove:false};
+let shield={max:100,val:100,active:false,regenDelay:0,broken:false};
+const keys={};
+let locked=false,lookOnly=false,paused=false;
+
+addEventListener('keydown',e=>{
+  if(listeningAction){
+    e.preventDefault();
+    if(e.code!=='Escape') assignBind(e.code);
+    else {listeningAction=null;buildBindList();}
+    return;
+  }
+  if(e.code==='Escape')return;
+  if(e.code==='Space')e.preventDefault();
+  keys[e.code]=true;
+  onAction(e.code);
+});
+addEventListener('keyup',e=>keys[e.code]=false);
+
+// mouse buttons: bindable inputs + blocked browser nav
+addEventListener('mousedown',e=>{
+  if(e.button===3||e.button===4)e.preventDefault();
+  if(listeningAction){e.preventDefault();assignBind('Mouse'+e.button);return;}
+  if(paused)return;
+  const code='Mouse'+e.button;
+  // LMB doubles as "recapture mouse" when unlocked
+  if(e.button===0&&!locked){
+    if(state!=='title'&&state!=='end')renderer.domElement.requestPointerLock();
+    return;
+  }
+  keys[code]=true;
+  onAction(code);
+});
+addEventListener('mouseup',e=>{
+  if(e.button===3||e.button===4)e.preventDefault();
+  keys['Mouse'+e.button]=false;
+});
+addEventListener('auxclick',e=>e.preventDefault());
+addEventListener('contextmenu',e=>{if(started)e.preventDefault();});
+
+document.addEventListener('pointerlockchange',()=>{
+  locked=document.pointerLockElement===renderer.domElement;
+  if(!locked&&inGameplay()&&$('narration').style.display!=='flex')openPause();
+});
+addEventListener('mousemove',e=>{
+  if(!locked||paused)return;
+  if(!player.canMove&&!lookOnly)return;
+  player.yaw-=e.movementX*.0021;
+  player.pitch-=e.movementY*.0021;
+  player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch));
+});
+
+function inGameplay(){
+  return ['course','turretTest','dream','free'].includes(state)&&started;
+}
+function openPause(){paused=true;$('pause').classList.add('open');buildBindList();}
+$('resumeBtn').onclick=()=>{
+  paused=false;listeningAction=null;$('pause').classList.remove('open');
+  $('resumeBtn').textContent='RESUME';
+  if(started)renderer.domElement.requestPointerLock();
+};
+$('bindResetBtn').onclick=()=>{binds=Object.assign({},DEFAULT_BINDS);buildBindList();};
+$('titleBindBtn').onclick=()=>{openPause();$('resumeBtn').textContent='CLOSE';};
+
+let inDream=false;
+function movePlayer(dt){
+  if(paused)return;
+  player.vy-=14*dt;
+  player.y+=player.vy*dt;
+  const sup=inDream?0:solidTopAt(player.pos.x,player.pos.z,player.y-player.vy*dt+.2);
+  if(player.y<=sup){
+    player.y=sup;
+    if(player.vy<-9)thud();
+    player.vy=0;player.grounded=true;
+  } else player.grounded=false;
+
+  if(!player.canMove)return;
+  const sprint=keys[binds.sprint];
+  const speed=inDream?2.2:(sprint?stats.sprint:stats.walk);
+  let fx=0,fz=0;
+  if(keys[binds.forward])fz-=1;
+  if(keys[binds.back])fz+=1;
+  if(keys[binds.left])fx-=1;
+  if(keys[binds.right])fx+=1;
+  const len=Math.hypot(fx,fz);
+  if(len>0){
+    fx/=len;fz/=len;
+    const s=Math.sin(player.yaw),c=Math.cos(player.yaw);
+    player.pos.x+=(fx*c+fz*s)*speed*dt;
+    player.pos.z+=(-fx*s+fz*c)*speed*dt;
+    if(player.grounded)player.bob+=dt*(sprint?14:8);
+  }
+  if(!inDream){
+    const r=.32;
+    for(const s of solids){
+      if(player.y>=s.y2-.001)continue;
+      if(player.y+1.55<=s.y1)continue;
+      const px=player.pos.x,pz=player.pos.z;
+      if(px>s.x1-r&&px<s.x2+r&&pz>s.z1-r&&pz<s.z2+r){
+        const d=[px-(s.x1-r),(s.x2+r)-px,pz-(s.z1-r),(s.z2+r)-pz];
+        const m=Math.min(...d);
+        if(m===d[0])player.pos.x=s.x1-r;
+        else if(m===d[1])player.pos.x=s.x2+r;
+        else if(m===d[2])player.pos.z=s.z1-r;
+        else player.pos.z=s.z2+r;
+      }
+    }
+    player.pos.x=Math.max(-70,Math.min(70,player.pos.x));
+    player.pos.z=Math.max(-90,Math.min(30,player.pos.z));
+  } else {
+    player.pos.x=Math.max(1985,Math.min(2015,player.pos.x));
+  }
+}
+
+function tryJump(){
+  if(player.canMove&&player.grounded&&!paused&&!inDream){
+    player.vy=stats.jump;player.grounded=false;whoosh();
+  }
+}
+function tryMelee(){
+  if(!player.canMove||paused||swingT>=0||!vm.visible)return;
+  swingT=0;whoosh();
+}
+function onAction(code){
+  if(code===binds.jump)tryJump();
+  if(code===binds.melee)tryMelee();
+  if(code===binds.interact){
+    if($('narration').style.display==='flex'){advanceNarr();return;}
+    if($('dlg').classList.contains('show')){advanceDialogue();return;}
+    interact();
+  }
+}
+
+let shake=0;
+function updateCamera(dt){
+  const bobY=player.grounded?Math.sin(player.bob)*.035:0;
+  camera.position.set(player.pos.x,player.y+stats.eye+bobY,player.pos.z);
+  camera.rotation.order='YXZ';
+  camera.rotation.y=player.yaw;camera.rotation.x=player.pitch;
+  if(shake>0){
+    camera.position.x+=(Math.random()-.5)*shake;
+    camera.position.y+=(Math.random()-.5)*shake;
+    shake*=.92;
+  }
+  if(swingT>=0){
+    swingT+=dt;
+    const t=swingT/.2;   // augmented = faster swing
+    if(t>=1){swingT=-1;vm.position.set(0,0,0);vm.rotation.set(0,0,0);}
+    else{
+      const k=Math.sin(t*Math.PI);
+      vm.position.set(0,0,-k*.25);
+      vm.rotation.set(-k*.3,k*.2,0);
+      if(t>.3&&t<.55&&!vm.userData.hitDone){vm.userData.hitDone=true;meleeHit();}
+    }
+  } else vm.userData.hitDone=false;
+}
+
+function meleeHit(){
+  const fwd=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);fwd.y=0;fwd.normalize();
+  for(const t of turrets){
+    if(t.userData.dead)continue;
+    const to=new THREE.Vector3().subVectors(t.position,player.pos);to.y=0;
+    const dist=to.length();
+    if(dist<2.6&&to.normalize().dot(fwd)>.5){
+      t.userData.hp--;
+      thud();shake=Math.max(shake,.05);
+      t.userData.head.material.emissive=new THREE.Color(0xff5522);
+      t.userData.head.material.emissiveIntensity=.9;
+      setTimeout(()=>{t.userData.head.material.emissiveIntensity=0;},120);
+      if(t.userData.hp<=0){
+        t.userData.dead=true;
+        t.userData.eye.material.color.set(0x333333);
+        t.rotation.x=.9;t.position.y=-.1;
+        blip(160,.5,.2,'triangle');
+        turretProgress();
+      }
+      return;
+    }
+  }
+}
+
+// ================= SHIELD =================
+function setShield(v){
+  shield.val=Math.max(0,Math.min(shield.max,v));
+  $('shieldFill').style.width=(shield.val/shield.max*100)+'%';
+  $('shieldWrap').classList.toggle('low',shield.val<30);
+}
+function damageShield(amt){
+  if(!shield.active)return;
+  setShield(shield.val-amt);
+  shield.regenDelay=2.6;
+  shieldHitSnd();shake=Math.max(shake,.04);
+  const fx=$('hitfx');
+  fx.classList.toggle('red',shield.val<=0);
+  fx.style.transition='none';fx.style.opacity=1;
+  requestAnimationFrame(()=>{fx.style.transition='opacity .5s';fx.style.opacity=0;});
+  if(shield.val<=0&&!shield.broken){
+    shield.broken=true;shieldDownSnd();
+    toast('SHIELD DOWN');
+    player.canMove=false;
+    setTimeout(()=>{player.canMove=true;shield.broken=false;},900);
+  }
+}
+function shieldUpdate(dt){
+  if(!shield.active)return;
+  if(shield.regenDelay>0){shield.regenDelay-=dt;return;}
+  if(shield.val<shield.max){
+    setShield(shield.val+45*dt);
+    if(shield.val>=shield.max)shieldUpSnd();
+  }
+}
+
+// ================= UI =================
+function objective(t){
+  const o=$('objective');
+  if(!t){o.classList.remove('show');return;}
+  o.textContent=t;o.classList.add('show');blip(880,.1,.06);
+}
+function prompt(t){
+  const p=$('prompt');
+  if(!t){p.classList.remove('show');return;}
+  p.innerHTML=t;p.classList.add('show');
+}
+function toast(t,good,ms){
+  const x=$('toast');x.textContent=t;
+  x.classList.toggle('good',!!good);x.classList.add('show');
+  setTimeout(()=>x.classList.remove('show'),ms||2400);
+}
+function fade(b,s){
+  const f=$('fade');f.style.transition=`opacity ${s||1.4}s ease`;
+  f.style.opacity=b?1:0;
+}
+function whiteFlash(hold){
+  const w=$('whiteout');
+  w.style.transition='opacity .25s';w.style.opacity=1;
+  setTimeout(()=>{w.style.transition='opacity 2s';w.style.opacity=0;},hold||400);
+}
+function cine(on){document.body.classList.toggle('cine',on);}
+
+let dlgQueue=[],dlgIdx=0,dlgTyping=false,dlgCb=null;
+function startDialogue(lines,cb){
+  dlgQueue=lines;dlgIdx=0;dlgCb=cb;
+  $('dlg').classList.add('show');cine(true);
+  $('dlgNext').textContent=keyLabel(binds.interact)+' — CONTINUE';
+  showLine();
+}
+function showLine(){
+  const L=dlgQueue[dlgIdx];
+  if(!L){endDialogue();return;}
+  $('dlgWho').textContent=L.who||'';
+  const el=$('dlgText');el.textContent='';dlgTyping=true;
+  let i=0;const txt=L.text;
+  (function type(){
+    if(dlgIdx>=dlgQueue.length)return;
+    if(i<txt.length&&dlgTyping){
+      el.textContent+=txt[i++];
+      if(i%3===0)blip(420+Math.random()*120,.02,.015,'square');
+      setTimeout(type,18);
+    } else dlgTyping=false;
+  })();
+}
+function advanceDialogue(){
+  if(dlgTyping){dlgTyping=false;$('dlgText').textContent=dlgQueue[dlgIdx].text;return;}
+  dlgIdx++;showLine();
+}
+function endDialogue(){
+  $('dlg').classList.remove('show');cine(false);
+  const cb=dlgCb;dlgCb=null;if(cb)cb();
+}
+
+let narrLines=[],narrIdx=0,narrCb=null;
+function narrate(lines,cb){
+  narrLines=lines;narrIdx=0;narrCb=cb;
+  $('narration').style.display='flex';
+  $('narrSkip').textContent=keyLabel(binds.interact)+' — CONTINUE';
+  showNarr();
+}
+function showNarr(){
+  const t=$('narrText');t.style.opacity=0;
+  setTimeout(()=>{t.textContent=narrLines[narrIdx];
+    t.style.transition='opacity 1.2s';t.style.opacity=1;},350);
+}
+function advanceNarr(){
+  narrIdx++;
+  if(narrIdx>=narrLines.length){
+    $('narration').style.display='none';
+    const cb=narrCb;narrCb=null;if(cb)cb();
+  } else showNarr();
+}
+
+// ================= GAME FLOW =================
+let state='title',stateT=0,started=false;
+let runTimer=0,timerOn=false;
+const RUN_LIMIT=35;
+let turretsDown=0,dreamDist=0;
+
+function setState(s){state=s;stateT=0;}
+
+$('startBtn').onclick=()=>{
+  initAudio();started=true;
+  $('title').classList.add('hidden');
+  document.body.classList.add('playing');
+  renderer.domElement.requestPointerLock();
+  narrate([
+    "Six more years. You are fourteen, one meter ninety, and the strongest human being you have ever personally met.",
+    "Tomorrow that stops being true, one way or the other.",
+    "Tonight, Dr. Voss wants to see you. She has never once asked to see anyone the night before anything good."
+  ],vossScene);
+};
+$('replayBtn').onclick=()=>location.reload();
+
+function vossScene(){
+  fade(false,1.8);
+  player.pos.set(28,0,8);player.y=0;player.yaw=Math.PI;player.pitch=0;
+  player.canMove=false;lookOnly=true;
+  setState('vossTalk');
+  setTimeout(()=>{
+    startDialogue([
+      {who:'DR. VOSS',text:"Sit, if you like. You won't. You never do."},
+      {who:'DR. VOSS',text:"Tomorrow we change you. Bone lattice reinforcement. Muscle fiber grafts. Reaction-time acceleration at the spinal level. Your body will become the thing we always intended it to be."},
+      {who:'DANE',text:"And if it doesn't take?"},
+      {who:'DR. VOSS',text:"Then it doesn't take. I won't lie to you tonight, of all nights. Some of you will die on the table. Some will survive wrong. We project a third of you walk out whole."},
+      {who:'DANE',text:"...You're telling me this so I can refuse."},
+      {who:'DR. VOSS',text:"I'm telling you this because eight years ago I took a boy who had never lost anything, and I have spent every day since making sure that when he finally bets his life, he does it with open eyes."},
+      {who:'DANE',text:"Then my eyes are open. Do it."},
+      {who:'DR. VOSS',text:"...For what it's worth, Dane: of all seventy-four files on my desk, yours is the one I never worry about."},
+      {who:'',text:"She is lying. You can tell. It is the kindest thing she has ever done for you."},
+    ],procedure);
+  },2000);
+}
+
+function procedure(){
+  fade(true,1.6);
+  setTimeout(()=>{
+    narrate([
+      "0500. The medical annex smells like cold metal and antiseptic.",
+      "They count backward from ten. You make it to seven, out of spite.",
+    ],dreamStart);
+  },1800);
+}
+
+function dreamStart(){
+  // golden memory of the schoolyard
+  worldGroup.visible=false;dream.visible=true;inDream=true;
+  scene.background=new THREE.Color(0xd8b878);
+  scene.fog=new THREE.Fog(0xd8b878,6,55);
+  hemi.intensity=1.1;sun.intensity=.3;
+  player.pos.set(2000,0,10);player.y=0;player.yaw=Math.PI;player.pitch=0;
+  player.canMove=true;lookOnly=false;
+  dreamDist=0;
+  setState('dream');
+  fade(false,2.5);
+  objective('THE FLAG');
+  let heard=false;
+  dream.userData.voices=setInterval(()=>{
+    if(state!=='dream')return;
+    blip(600+Math.random()*600,.3,.02,'sine'); // distant children, wrong frequencies
+  },1400);
+}
+
+function dreamUpdate(dt){
+  const flagZ=-45+2000*0; // local flag at world (2000,?,-45)
+  const d=Math.hypot(player.pos.x-2000,player.pos.z-(-45));
+  // the flag recedes — you can never quite reach it
+  if(d<24){
+    dream.children.forEach(c=>{});
+    const pole=dream.children[1],cloth=dream.userData.cloth;
+    pole.position.z-=dt*2.4;cloth.position.z-=dt*2.4;
+  }
+  dreamDist+=dt;
+  if(dreamDist>14){
+    clearInterval(dream.userData.voices);
+    setState('waking');
+    player.canMove=false;
+    whiteFlash(900);
+    blip(880,1.5,.06);blip(440,2,.05);
+    setTimeout(wakeUp,1400);
+  }
+}
+
+function wakeUp(){
+  dream.visible=false;worldGroup.visible=true;inDream=false;
+  scene.background=new THREE.Color(0xc8a878);
+  scene.fog=new THREE.Fog(0xc8a878,90,280);
+  hemi.intensity=.7;sun.intensity=1.1;
+  $('fade').style.transition='opacity 0s';$('fade').style.opacity=1;
+  narrate([
+    "You wake eleven days later. The ceiling is the same. Nothing else is.",
+    "Your hands look like someone else's hands. The IV needle bent when they tried to insert it.",
+    "Of seventy-four trainees, thirty-one were cleared for duty. Twelve are buried behind the medical annex. The rest will live, after a fashion, in chairs and beds the Directorate will pay for forever.",
+    "Vela made it. Bram made it — barely. He'll be on his feet next month.",
+    "Krell is waiting at the old course. He has a stopwatch and an expression you've never seen him wear. It might be a smile."
+  ],newBody);
+}
+
+function newBody(){
+  stats=Object.assign({},AUG);
+  player.pos.set(0,0,12);player.y=0;player.yaw=Math.PI;player.pitch=0;
+  krell.visible=true;krell.position.set(3,0,6);
+  vela.visible=true;vela.position.set(-3,0,7);
+  fade(false,1.8);
+  player.canMove=false;lookOnly=true;
+  setState('preCourse');
+  setTimeout(()=>{
+    startDialogue([
+      {who:'MASTER INSTRUCTOR KRELL',text:"Your record on this course stood for six years. Fastest ever recorded. You set it when you were twelve."},
+      {who:'MASTER INSTRUCTOR KRELL',text:"Today you're going to beat it by twenty seconds, and I am going to enjoy watching you realize what you are now."},
+      {who:'VELA',text:"They clocked me at sixty kilometers an hour yesterday, Dane. Sixty. Try to keep up."},
+      {who:'MASTER INSTRUCTOR KRELL',text:"Thirty-five seconds, Korso. Bell. Go."},
+    ],startCourse);
+  },1900);
+}
+
+function startCourse(){
+  player.pos.set(0,0,4);player.y=0;player.yaw=Math.PI;
+  objective('THE OLD COURSE — RING THE BELL UNDER 35s');
+  prompt(`${keyLabel(binds.sprint)} SPRINT &nbsp;·&nbsp; ${keyLabel(binds.jump)} JUMP — YOU CAN CLEAR THE RAILS NOW`);
+  setTimeout(()=>prompt(null),4500);
+  let n=3;const cd=$('countdown');
+  (function tick(){
+    if(n>0){
+      cd.textContent=n;cd.style.opacity=1;blip(520,.12,.12,'triangle');
+      setTimeout(()=>cd.style.opacity=0,650);
+      n--;setTimeout(tick,1000);
+    } else {
+      cd.textContent='GO';cd.style.opacity=1;blip(1040,.25,.15,'triangle');
+      setTimeout(()=>cd.style.opacity=0,700);
+      player.canMove=true;lookOnly=false;
+      runTimer=0;timerOn=true;$('timer').classList.add('show');
+      setState('course');
+    }
+  })();
+}
+
+function interact(){
+  const nearBell=player.pos.distanceTo(BELL)<2.8;
+  if(state==='course'&&nearBell){
+    timerOn=false;$('timer').classList.remove('show');
+    blip(1560,.7,.18,'triangle');
+    player.canMove=false;lookOnly=true;objective(null);prompt(null);
+    if(runTimer>RUN_LIMIT){
+      toast(`${runTimer.toFixed(1)}s — YOU'RE STILL WAKING UP. AGAIN.`);
+      setTimeout(()=>{fade(true,.8);setTimeout(()=>{fade(false,.8);startCourse();},900);},1800);
+      return;
+    }
+    setState('postCourse');
+    startDialogue([
+      {who:'MASTER INSTRUCTOR KRELL',text:`${runTimer.toFixed(1)} seconds. ...Eight years I've run this camp. I have never once seen anything move like that.`},
+      {who:'DANE',text:"It feels... slow. Everything else feels slow. Is that permanent?"},
+      {who:'MASTER INSTRUCTOR KRELL',text:"Yes. Welcome to the rest of your life, Vanguard."},
+      {who:'DR. VOSS',text:"Don't get comfortable in that body yet. There's one more piece. It arrived from the orbital yards this morning."},
+      {who:'DR. VOSS',text:"Combat pit. We need to test it on someone, and the test is not gentle. Naturally I thought of you."},
+    ],armorScene);
+    return;
+  }
+}
+
+function armorScene(){
+  fade(true,.9);
+  setTimeout(()=>{
+    player.pos.set(PIT.x,0,PIT.z+6);player.y=0;player.yaw=Math.PI;
+    voss.position.set(PIT.x+7,0,PIT.z+6);
+    krell.position.set(PIT.x-7,0,PIT.z+6);
+    vela.position.set(PIT.x-8,0,PIT.z+4);
+    turret(PIT.x-4,PIT.z-5);turret(PIT.x+4.5,PIT.z-4.5);
+    fade(false,.9);
+    startDialogue([
+      {who:'DR. VOSS',text:"Powered exoframe, mark one. Reactive circuits. And the part my engineers still call impossible: a projected energy shield."},
+      {who:'DR. VOSS',text:"The shield stops what your skin can't. It drains under fire and rebuilds when you find three seconds of peace. Your job is learning to count those seconds."},
+      {who:'MASTER INSTRUCTOR KRELL',text:"Two training turrets. Stun bolts. They will hurt precisely as much as I could persuade her to allow."},
+      {who:'DR. VOSS',text:"Wreck them both. Try to enjoy it — you've earned that much."},
+    ],()=>{
+      // HUD boot
+      shield.active=true;setShield(100);
+      $('shieldWrap').classList.add('show');
+      shieldUpSnd();
+      vm.visible=true;
+      setTimeout(()=>{
+        player.canMove=true;lookOnly=false;
+        setState('turretTest');
+        objective('DESTROY BOTH TURRETS — MANAGE YOUR SHIELD');
+        prompt(`${keyLabel(binds.melee)} — STRIKE &nbsp;·&nbsp; USE THE COVER BLOCKS`);
+        setTimeout(()=>prompt(null),4500);
+      },1200);
+    });
+  },1000);
+}
+
+function turretUpdate(dt){
+  for(const t of turrets){
+    const u=t.userData;
+    if(u.dead)continue;
+    // track player
+    const dir=new THREE.Vector3().subVectors(camera.position,t.position);
+    t.userData.head.lookAt(camera.position);
+    u.cool-=dt;
+    if(u.cool<=0){
+      u.cool=1.5+Math.random()*.5;
+      const from=t.position.clone();from.y=1.2;
+      const to=camera.position.clone();
+      to.x+=(Math.random()-.5)*.8;to.y+=(Math.random()-.5)*.5;to.z+=(Math.random()-.5)*.8;
+      fireBolt(from,to);
+    }
+  }
+  // bolts
+  for(let i=bolts.length-1;i>=0;i--){
+    const b=bolts[i];
+    b.position.addScaledVector(b.userData.v,dt);
+    b.userData.life+=dt;
+    // hit player?
+    if(b.position.distanceTo(camera.position)<.55){
+      damageShield(20);
+      scene.remove(b);bolts.splice(i,1);continue;
+    }
+    // hit cover/world (rough)
+    if(b.position.y<0.05||b.userData.life>3){
+      scene.remove(b);bolts.splice(i,1);continue;
+    }
+    for(const s of solids){
+      const p=b.position;
+      if(p.x>s.x1&&p.x<s.x2&&p.y>s.y1&&p.y<s.y2&&p.z>s.z1&&p.z<s.z2){
+        scene.remove(b);bolts.splice(i,1);break;
+      }
+    }
+  }
+}
+
+function turretProgress(){
+  turretsDown++;
+  toast(`${turretsDown} / 2 TURRETS DOWN`,true,1300);
+  if(turretsDown>=2){
+    player.canMove=false;lookOnly=true;objective(null);
+    bolts.forEach(b=>scene.remove(b));bolts.length=0;
+    setState('postTest');
+    setTimeout(()=>{
+      startDialogue([
+        {who:'DR. VOSS',text:"Shield integrity held. Frame response nominal. Pilot response... beyond projection. Again."},
+        {who:'VELA',text:"You looked like a thunderstorm with legs, Korso. I want one."},
+        {who:'DR. VOSS',text:"You'll all have one. That's rather the point."},
+        {who:'MASTER INSTRUCTOR KRELL',text:"Enough. Debrief at 1900. All of you — wear the frame to dinner. The other trainees should see what they're becoming."},
+      ],epilogue);
+    },800);
+  }
+}
+
+function epilogue(){
+  fade(true,1.5);
+  setTimeout(()=>{
+    narrate([
+      "Entry 003, addendum. Augmentation cohort finalized: thirty-one active subjects. Exoframe trials: passed on first attempt.",
+      "Voss, personal log: He asked me today why we built all this. I gave him the official answer — deterrence, insurgency, the long quiet war between colonies.",
+      "I did not tell him about the survey ship that went silent past the rim in March. Or the second one. Or the third.",
+      "I did not tell him that the last fragment of telemetry we recovered was not in any human language.",
+      "He'll know soon enough. They all will."
+    ],()=>{
+      setState('end');
+      document.body.classList.remove('playing');
+      document.exitPointerLock();
+      $('endScreen').classList.remove('hidden');
+    });
+  },1600);
+}
+
+// ================= MAIN LOOP =================
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05);
+  stateT+=dt;
+  if(!paused){
+    movePlayer(dt);
+    shieldUpdate(dt);
+    if(timerOn){
+      runTimer+=dt;
+      $('timer').textContent=runTimer.toFixed(1);
+      $('timer').classList.toggle('late',runTimer>RUN_LIMIT);
+    }
+    if(state==='dream')dreamUpdate(dt);
+    if(state==='turretTest')turretUpdate(dt);
+    if(state==='course'&&player.pos.distanceTo(BELL)<2.8)
+      prompt(keyLabel(binds.interact)+' — RING THE BELL');
+    else if(state==='course')prompt(null);
+    if(dream.visible&&dream.userData.cloth)
+      dream.userData.cloth.rotation.y=Math.sin(stateT*1.4)*.3;
+  }
+  updateCamera(dt);
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>

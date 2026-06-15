@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VANGUARD — Chapter Two: The Program</title>
+<style>
+  :root{
+    --amber:#ffb36b; --steel:#9fb4c7; --ink:#0a0e14; --blood:#c84b31; --bone:#e8e2d4;
+    --cold:#6e8aa8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--ink);
+    font-family:"Segoe UI",system-ui,sans-serif;color:var(--bone)}
+  #game{position:absolute;inset:0}
+  canvas{display:block}
+
+  #vignette{position:absolute;inset:0;pointer-events:none;z-index:5;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%);}
+  #grain{position:absolute;inset:0;pointer-events:none;z-index:6;opacity:.07;}
+
+  .bar{position:absolute;left:0;width:100%;height:0;background:#000;z-index:8;transition:height .8s ease}
+  #barTop{top:0} #barBot{bottom:0}
+  body.cine #barTop, body.cine #barBot{height:11vh}
+
+  #archive{position:absolute;top:14px;left:16px;z-index:10;
+    font-family:"Consolas","Courier New",monospace;font-size:11px;letter-spacing:.14em;
+    color:rgba(232,226,212,.55);text-transform:uppercase;line-height:1.7;pointer-events:none}
+  #archive b{color:var(--amber);font-weight:600}
+
+  #objective{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:10;
+    font-family:"Consolas",monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--bone);background:rgba(10,14,20,.55);border-left:3px solid var(--amber);
+    padding:8px 16px;opacity:0;transition:opacity .5s;pointer-events:none;max-width:80vw;text-align:center}
+  #objective.show{opacity:1}
+
+  #timer{position:absolute;top:16px;right:18px;z-index:10;font-family:"Consolas",monospace;
+    font-size:26px;letter-spacing:.1em;color:var(--bone);opacity:0;transition:opacity .4s;
+    pointer-events:none;text-shadow:0 0 18px rgba(0,0,0,.8)}
+  #timer.show{opacity:1}
+  #timer.late{color:var(--blood)}
+
+  #prompt{position:absolute;left:50%;top:62%;transform:translate(-50%,-50%);z-index:10;
+    font-family:"Consolas",monospace;font-size:14px;letter-spacing:.2em;color:var(--amber);
+    text-transform:uppercase;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center}
+  #prompt.show{opacity:1}
+  #countdown{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:10;
+    font-family:"Consolas",monospace;font-size:90px;font-weight:700;color:var(--bone);
+    opacity:0;pointer-events:none;text-shadow:0 0 40px rgba(255,179,107,.4)}
+
+  #dot{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;
+    background:rgba(232,226,212,.8);z-index:9;pointer-events:none;display:none}
+  body.playing #dot{display:block}
+
+  #dlg{position:absolute;left:50%;bottom:13vh;transform:translateX(-50%);width:min(720px,90vw);
+    z-index:12;background:rgba(8,11,17,.88);border:1px solid rgba(159,180,199,.25);
+    border-left:4px solid var(--amber);padding:18px 24px 16px;opacity:0;transition:opacity .35s;
+    pointer-events:none}
+  #dlg.show{opacity:1}
+  #dlgWho{font-family:"Consolas",monospace;font-size:11px;letter-spacing:.22em;color:var(--amber);
+    text-transform:uppercase;margin-bottom:8px}
+  #dlgText{font-size:17px;line-height:1.6;min-height:3.2em;color:var(--bone)}
+  #dlgNext{font-family:"Consolas",monospace;font-size:11px;letter-spacing:.18em;color:rgba(232,226,212,.45);
+    text-align:right;margin-top:8px;text-transform:uppercase}
+
+  .screen{position:absolute;inset:0;z-index:20;background:var(--ink);display:flex;
+    flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    transition:opacity 1.2s ease}
+  .screen.hidden{opacity:0;pointer-events:none}
+  .eyebrow{font-family:"Consolas",monospace;font-size:12px;letter-spacing:.35em;
+    color:var(--blood);text-transform:uppercase;margin-bottom:18px}
+  h1{font-size:clamp(40px,7vw,84px);font-weight:200;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--bone);margin-bottom:6px;padding-left:.32em}
+  .chapter{font-family:"Consolas",monospace;font-size:15px;letter-spacing:.3em;color:var(--amber);
+    text-transform:uppercase;margin-bottom:44px}
+  .btn{font-family:"Consolas",monospace;font-size:14px;letter-spacing:.25em;text-transform:uppercase;
+    color:var(--ink);background:var(--amber);border:none;padding:15px 44px;cursor:pointer;
+    transition:all .2s;margin:6px}
+  .btn:hover{background:var(--bone)}
+  .btn.ghost{background:transparent;color:var(--steel);border:1px solid rgba(159,180,199,.4)}
+  .btn.ghost:hover{color:var(--bone);border-color:var(--bone)}
+  .controls{margin-top:38px;font-family:"Consolas",monospace;font-size:12px;letter-spacing:.12em;
+    color:rgba(159,180,199,.7);line-height:2.1}
+  .controls em{color:var(--bone);font-style:normal}
+
+  #narration{position:absolute;inset:0;z-index:18;background:#000;display:none;
+    align-items:center;justify-content:center;padding:8vw}
+  #narrText{font-size:clamp(17px,2.2vw,24px);font-weight:300;line-height:2;max-width:760px;
+    text-align:center;color:var(--bone);letter-spacing:.02em}
+  #narrSkip{position:absolute;bottom:28px;right:34px;font-family:"Consolas",monospace;
+    font-size:11px;letter-spacing:.2em;color:rgba(232,226,212,.4);text-transform:uppercase}
+
+  #fade{position:absolute;inset:0;background:#000;z-index:16;opacity:1;pointer-events:none;
+    transition:opacity 1.4s ease}
+  #toast{position:absolute;left:50%;top:30%;transform:translateX(-50%);z-index:14;
+    font-family:"Consolas",monospace;font-size:15px;letter-spacing:.15em;color:var(--blood);
+    text-transform:uppercase;background:rgba(0,0,0,.7);padding:14px 26px;opacity:0;
+    transition:opacity .4s;pointer-events:none;border:1px solid rgba(200,75,49,.4)}
+  #toast.show{opacity:1}
+  #toast.good{color:var(--amber);border-color:rgba(255,179,107,.4)}
+
+  /* PAUSE + KEY BINDING MENU */
+  #pause{position:absolute;inset:0;z-index:30;background:rgba(5,8,13,.92);display:none;
+    flex-direction:column;align-items:center;justify-content:center}
+  #pause.open{display:flex}
+  #pause h2{font-family:"Consolas",monospace;font-weight:400;font-size:20px;letter-spacing:.4em;
+    text-transform:uppercase;color:var(--bone);margin-bottom:30px}
+  #bindPanel{width:min(520px,92vw);background:rgba(10,14,20,.6);
+    border:1px solid rgba(159,180,199,.2);padding:22px 26px;margin-bottom:26px;
+    max-height:55vh;overflow-y:auto}
+  #bindPanel h3{font-family:"Consolas",monospace;font-size:12px;letter-spacing:.3em;
+    text-transform:uppercase;color:var(--steel);margin-bottom:14px;font-weight:400}
+  .bindRow{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 4px;border-bottom:1px solid rgba(159,180,199,.1);cursor:pointer}
+  .bindRow:hover{background:rgba(255,179,107,.06)}
+  .bindName{font-size:14px;letter-spacing:.06em;color:var(--bone)}
+  .bindKey{font-family:"Consolas",monospace;font-size:13px;letter-spacing:.1em;
+    color:var(--amber);background:rgba(255,179,107,.1);border:1px solid rgba(255,179,107,.3);
+    padding:4px 14px;min-width:90px;text-align:center}
+  .bindRow.listening .bindKey{color:var(--ink);background:var(--amber);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.6}}
+  #bindHint{font-family:"Consolas",monospace;font-size:11px;letter-spacing:.15em;
+    color:rgba(159,180,199,.6);text-transform:uppercase;margin-top:12px;text-align:center}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="fade"></div>
+<div id="vignette"></div>
+<canvas id="grain"></canvas>
+<div class="bar" id="barTop"></div>
+<div class="bar" id="barBot"></div>
+<div id="dot"></div>
+
+<div id="archive">archival playback // directorate of strategic sciences<br>
+subject <b>V-04</b> // memory entry <b>002</b> // camp caldera, planet veld</div>
+
+<div id="objective"></div>
+<div id="timer">00.0</div>
+<div id="prompt"></div>
+<div id="countdown"></div>
+<div id="toast"></div>
+
+<div id="dlg">
+  <div id="dlgWho"></div>
+  <div id="dlgText"></div>
+  <div id="dlgNext">CONTINUE</div>
+</div>
+
+<div id="narration"><div id="narrText"></div><div id="narrSkip">CONTINUE</div></div>
+
+<div class="screen" id="title">
+  <div class="eyebrow">classified // eyes only</div>
+  <h1>Vanguard</h1>
+  <div class="chapter">Chapter Two — The Program</div>
+  <div>
+    <button class="btn" id="startBtn">Begin Playback</button>
+    <button class="btn ghost" id="titleBindBtn">Controls</button>
+  </div>
+  <div class="controls" id="ctrlSummary"></div>
+</div>
+
+<div class="screen hidden" id="endScreen">
+  <div class="eyebrow">entry 002 — sealed</div>
+  <h1 style="font-size:clamp(28px,4.5vw,52px)">Chapter Two Complete</h1>
+  <div class="chapter" style="margin-bottom:30px">Next — Chapter Three: Augmentation</div>
+  <button class="btn" id="replayBtn">Replay Memory</button>
+</div>
+
+<div id="pause">
+  <h2>Paused</h2>
+  <div id="bindPanel">
+    <h3>Key Bindings — click a row, press a new key</h3>
+    <div id="bindList"></div>
+    <div id="bindHint">ESC cancels a rebind · bindings last for this session</div>
+  </div>
+  <div>
+    <button class="btn" id="resumeBtn">Resume</button>
+    <button class="btn ghost" id="bindResetBtn">Reset Defaults</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   VANGUARD — Chapter Two: The Program
+   Training world. The obstacle course teaches movement and
+   jumping; the combat pit teaches melee. Full key remapping.
+   ============================================================ */
+const $ = id => document.getElementById(id);
+
+// ================= KEY BINDINGS =================
+const DEFAULT_BINDS = {
+  forward:'KeyW', back:'KeyS', left:'KeyA', right:'KeyD',
+  jump:'Space', sprint:'ShiftLeft', melee:'KeyF', interact:'KeyE'
+};
+const BIND_LABELS = {
+  forward:'Move forward', back:'Move back', left:'Strafe left', right:'Strafe right',
+  jump:'Jump', sprint:'Sprint', melee:'Melee strike', interact:'Interact / advance'
+};
+let binds = Object.assign({}, DEFAULT_BINDS);
+function keyLabel(code){
+  if(!code) return '—';
+  if(code==='Space') return 'SPACE';
+  if(code.startsWith('Key')) return code.slice(3);
+  if(code.startsWith('Digit')) return code.slice(5);
+  if(code==='ShiftLeft') return 'L-SHIFT'; if(code==='ShiftRight') return 'R-SHIFT';
+  if(code==='ControlLeft') return 'L-CTRL'; if(code==='ControlRight') return 'R-CTRL';
+  if(code==='AltLeft') return 'L-ALT'; if(code==='AltRight') return 'R-ALT';
+  return code.toUpperCase();
+}
+let listeningAction = null;
+function buildBindList(){
+  const box=$('bindList'); box.innerHTML='';
+  Object.keys(DEFAULT_BINDS).forEach(act=>{
+    const row=document.createElement('div'); row.className='bindRow'; row.dataset.act=act;
+    row.innerHTML=`<span class="bindName">${BIND_LABELS[act]}</span>
+      <span class="bindKey">${keyLabel(binds[act])}</span>`;
+    row.onclick=()=>{
+      document.querySelectorAll('.bindRow').forEach(r=>r.classList.remove('listening'));
+      listeningAction=act; row.classList.add('listening');
+      row.querySelector('.bindKey').textContent='PRESS KEY';
+    };
+    box.appendChild(row);
+  });
+  updateCtrlSummary();
+}
+function updateCtrlSummary(){
+  $('ctrlSummary').innerHTML =
+    `<em>${keyLabel(binds.forward)}${keyLabel(binds.left)}${keyLabel(binds.back)}${keyLabel(binds.right)}</em> move
+     &nbsp;·&nbsp; <em>MOUSE</em> look &nbsp;·&nbsp; <em>${keyLabel(binds.sprint)}</em> sprint
+     &nbsp;·&nbsp; <em>${keyLabel(binds.jump)}</em> jump<br>
+     <em>${keyLabel(binds.melee)}</em> melee &nbsp;·&nbsp; <em>${keyLabel(binds.interact)}</em> interact
+     &nbsp;·&nbsp; <em>ESC</em> pause / controls &nbsp;·&nbsp; click to capture the mouse`;
+}
+buildBindList();
+
+// ================= RENDERER / SCENE =================
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+$('game').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, .05, 600);
+scene.add(camera);   // so the viewmodel (child of camera) renders
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// film grain
+(function grain(){
+  const c=$('grain'); c.width=256; c.height=256;
+  const g=c.getContext('2d');
+  (function f(){
+    const img=g.createImageData(256,256);
+    for(let i=0;i<img.data.length;i+=4){
+      const v=Math.random()*255|0;
+      img.data[i]=img.data[i+1]=img.data[i+2]=v; img.data[i+3]=255;
+    }
+    g.putImageData(img,0,0); setTimeout(f,90);
+  })();
+  c.style.width='100%'; c.style.height='100%';
+})();
+
+// ================= AUDIO =================
+let AC=null, windGain=null;
+function initAudio(){
+  if(AC) return;
+  AC = new (window.AudioContext||window.webkitAudioContext)();
+  const len=AC.sampleRate*2, buf=AC.createBuffer(1,len,AC.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+  const src=AC.createBufferSource(); src.buffer=buf; src.loop=true;
+  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=380;
+  windGain=AC.createGain(); windGain.gain.value=.06;
+  src.connect(lp); lp.connect(windGain); windGain.connect(AC.destination);
+  src.start();
+}
+function blip(freq,dur,vol,type){
+  if(!AC) return;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type||'sine'; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol||.12, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime+(dur||.15));
+  o.connect(g); g.connect(AC.destination);
+  o.start(); o.stop(AC.currentTime+(dur||.15)+.02);
+}
+function thud(){ blip(90,.18,.2,'triangle'); blip(60,.25,.15,'sine'); }
+function whoosh(){
+  if(!AC) return;
+  const len=AC.sampleRate*.18, buf=AC.createBuffer(1,len,AC.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.sin(Math.PI*i/len);
+  const s=AC.createBufferSource(); s.buffer=buf;
+  const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900;
+  const g=AC.createGain(); g.gain.value=.12;
+  s.connect(bp); bp.connect(g); g.connect(AC.destination); s.start();
+}
+
+// ================= WORLD: TRAINING YARD, PRE-DAWN =================
+const mat=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.85,metalness:.05},o||{}));
+
+// dirt ground
+{
+  const g=new THREE.Mesh(new THREE.PlaneGeometry(400,400), mat(0x5a564c,{roughness:1}));
+  g.rotation.x=-Math.PI/2; g.receiveShadow=true; scene.add(g);
+}
+// mountains (cones on horizon)
+for(let i=0;i<10;i++){
+  const a=(i/10)*6.283, r=160+Math.random()*30;
+  const m=new THREE.Mesh(new THREE.ConeGeometry(28+Math.random()*22, 36+Math.random()*30, 6),
+    mat(0x3c4452,{roughness:1}));
+  m.position.set(Math.cos(a)*r, 0, Math.sin(a)*r);
+  scene.add(m);
+}
+// perimeter buildings
+function block(w,h,d,x,z,c,ry){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat(c));
+  m.position.set(x,h/2,z); m.rotation.y=ry||0;
+  m.castShadow=true; m.receiveShadow=true; scene.add(m); return m;
+}
+block(26,6,10, -42,-30, 0x6b7280);     // barracks
+block(26,6,10, -42,-46, 0x646b78);
+block(18,8,14,  48,-10, 0x707888);     // command
+block(12,5,8,   44,-44, 0x676e7c);
+// watchtowers
+function tower(x,z){
+  block(1.2,9,1.2,x,z,0x55607a);
+  block(4,2.4,4,x,z,0x66718a).position.y=9.6;
+}
+tower(-60,10); tower(60,-70); tower(-60,-80); tower(58,18);
+
+// lighting: cold pre-dawn + sodium floodlights
+const hemi=new THREE.HemisphereLight(0x8fa8c8, 0x2a2e34, .5); scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xaec4e0,.55);
+sun.position.set(40,60,30); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-80; sun.shadow.camera.right=80;
+sun.shadow.camera.top=80; sun.shadow.camera.bottom=-80;
+scene.add(sun);
+const floods=[];
+function flood(x,z){
+  block(.5,11,.5,x,z,0x444c5c);
+  const head=block(1.6,.8,.8,x,z,0x333a48); head.position.y=11;
+  const L=new THREE.PointLight(0xffc890, 0, 38);
+  L.position.set(x,10.5,z); scene.add(L); floods.push(L);
+}
+flood(-12,-30); flood(12,-30); flood(-12,-66); flood(22,-46);
+scene.background=new THREE.Color(0x4a5a72);
+scene.fog=new THREE.Fog(0x4a5a72, 80, 260);
+
+// ================= SOLIDS / COLLISION =================
+const solids=[];
+function solid(w,h,d,x,y,z,c,noShadow){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat(c||0x8a8276));
+  m.position.set(x,y+h/2,z);
+  if(!noShadow){m.castShadow=true;} m.receiveShadow=true;
+  scene.add(m);
+  solids.push({x1:x-w/2,x2:x+w/2,y1:y,y2:y+h,z1:z-d/2,z2:z+d/2,mesh:m});
+  return m;
+}
+function solidTopAt(x,z,feetY){
+  let top=0;
+  for(const s of solids){
+    if(x>s.x1-.05 && x<s.x2+.05 && z>s.z1-.05 && z<s.z2+.05 && s.y2<=feetY+.06)
+      top=Math.max(top,s.y2);
+  }
+  return top;
+}
+
+// ---------- OBSTACLE COURSE (start z=0, bell z=-62) ----------
+const COURSE_X=0;
+// side rails to keep the lane honest
+solid(.4,1.6,64, -4.2,0,-30, 0x6b6458);
+solid(.4,1.6,64,  4.2,0,-30, 0x6b6458);
+// start gate
+solid(.5,3.4,.5,-4,0,1,0x55607a); solid(.5,3.4,.5,4,0,1,0x55607a);
+solid(8.5,.4,.5,0,3.4,1,0x55607a);
+// hurdles ×3
+[-10,-16,-22].forEach(z=> solid(7.5,.55,.45, 0,0,z, 0xa0563c));
+// platform climb: step, two platforms with a gap
+solid(3.5,.6,2.4, 0,0,-29, 0x7d7466);          // step
+solid(3.5,1.2,3.2, 0,0,-32.6, 0x877e6f);       // plat A
+/* gap of ~2.1m */
+solid(3.5,1.2,3.2, 0,0,-37.9, 0x877e6f);       // plat B
+// balance beam over the mud pit
+solid(2.2,.4,1.6, 0,0,-44.2, 0x7d7466);        // mount step
+solid(.5,.8,11,  0,0,-50.5, 0x9a8f7c);         // the beam
+{ // mud pit visual
+  const mud=new THREE.Mesh(new THREE.PlaneGeometry(7.6,11.5),
+    mat(0x32302a,{roughness:1}));
+  mud.rotation.x=-Math.PI/2; mud.position.set(0,.02,-50.5); scene.add(mud);
+}
+// finish bell
+const bell=new THREE.Group();
+{
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,2.6,8), mat(0x55607a));
+  post.position.y=1.3; bell.add(post);
+  const cap=new THREE.Mesh(new THREE.SphereGeometry(.32,12,10,0,6.3,0,1.8),
+    mat(0xd9b13b,{metalness:.6,roughness:.35}));
+  cap.position.y=2.45; bell.add(cap);
+}
+bell.position.set(0,0,-62); scene.add(bell);
+const BELL=new THREE.Vector3(0,0,-62);
+
+// ---------- COMBAT PIT (east of course) ----------
+const PIT=new THREE.Vector3(22,0,-28);
+{ // pit ring
+  const ring=new THREE.Mesh(new THREE.RingGeometry(7.5,8.2,40),
+    mat(0x46413a,{roughness:1}));
+  ring.rotation.x=-Math.PI/2; ring.position.set(PIT.x,.03,PIT.z); scene.add(ring);
+  const fl=new THREE.Mesh(new THREE.CircleGeometry(7.5,40), mat(0x504a40,{roughness:1}));
+  fl.rotation.x=-Math.PI/2; fl.position.set(PIT.x,.02,PIT.z); scene.add(fl);
+}
+const dummies=[];
+function dummy(x,z){
+  const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(.4,.5,.25,12), mat(0x3a3f4a));
+  base.position.y=.12; g.add(base);
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.26,.3,1.2,10), mat(0x9a4632));
+  body.position.y=1.0; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.2,12,12), mat(0xb55a3e));
+  head.position.y=1.85; head.castShadow=true; g.add(head);
+  g.position.set(x,0,z);
+  g.userData={hp:3, down:false, tilt:0, body, head};
+  scene.add(g); dummies.push(g);
+}
+dummy(PIT.x-3.4,PIT.z-2); dummy(PIT.x+3.2,PIT.z-2.6);
+dummy(PIT.x-1.5,PIT.z+3.4); dummy(PIT.x+2.8,PIT.z+2.8);
+
+// ================= CHARACTERS =================
+function person(coat,skin,scale){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.26*scale,.34*scale,1.3*scale,10), mat(coat));
+  body.position.y=.85*scale; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.17*scale,12,12), mat(skin));
+  head.position.y=1.68*scale; head.castShadow=true; g.add(head);
+  return g;
+}
+const krell = person(0x3a4452, 0xb08a64, 1.25);  // master instructor
+krell.position.set(3.2,0,4); scene.add(krell);
+const bram  = person(0x5a6a4a, 0xd9a878, .92);   // big kid (for an 8-year-old)
+bram.position.set(-2.5,0,3); scene.add(bram); bram.visible=false;
+const vela  = person(0x7a5a8a, 0xc89070, .8);    // fast kid
+vela.position.set(2,0,6); scene.add(vela); vela.visible=false;
+
+// ================= VIEWMODEL (training baton) =================
+const vm=new THREE.Group();
+{
+  const arm=new THREE.Mesh(new THREE.BoxGeometry(.07,.07,.34), mat(0x6a7a5a));
+  arm.position.set(0,0,-.16); vm.add(arm);
+  const baton=new THREE.Mesh(new THREE.CylinderGeometry(.025,.03,.5,8),
+    mat(0x2e333d,{metalness:.4,roughness:.4}));
+  baton.rotation.x=Math.PI/2-.2; baton.position.set(0,.02,-.5); vm.add(baton);
+}
+vm.position.set(.32,-.3,-.55); vm.rotation.set(.1,-.15,0);
+vm.visible=false; camera.add(vm);
+let swingT=-1;
+
+// ================= PLAYER =================
+const player={
+  pos:new THREE.Vector3(0,0,8), y:0, vy:0, grounded:true,
+  yaw:Math.PI, pitch:0, eye:1.1, bob:0, canMove:false
+};
+const keys={};
+let locked=false, lookOnly=false, paused=false;
+
+addEventListener('keydown',e=>{
+  // rebinding capture
+  if(listeningAction){
+    e.preventDefault();
+    if(e.code!=='Escape'){
+      // clear duplicates
+      Object.keys(binds).forEach(a=>{ if(binds[a]===e.code) binds[a]=null; });
+      binds[listeningAction]=e.code;
+    }
+    listeningAction=null; buildBindList();
+    return;
+  }
+  if(e.code==='Escape') return; // browser handles pointer lock exit → pause
+  if(e.code==='Space') e.preventDefault();
+  keys[e.code]=true;
+  onAction(e.code);
+});
+addEventListener('keyup',e=>keys[e.code]=false);
+
+renderer.domElement.addEventListener('click',()=>{
+  if(state!=='title'&&state!=='end'&&!locked&&!paused)
+    renderer.domElement.requestPointerLock();
+});
+document.addEventListener('pointerlockchange',()=>{
+  locked=document.pointerLockElement===renderer.domElement;
+  if(!locked && inGameplay() && $('narration').style.display!=='flex'){
+    openPause();
+  }
+});
+addEventListener('mousemove',e=>{
+  if(!locked||paused) return;
+  if(!player.canMove&&!lookOnly) return;
+  player.yaw-=e.movementX*.0021;
+  player.pitch-=e.movementY*.0021;
+  player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch));
+});
+
+function inGameplay(){
+  return ['run1','run2','melee','postRun','free'].includes(state) && started;
+}
+function openPause(){
+  paused=true; $('pause').classList.add('open'); buildBindList();
+}
+$('resumeBtn').onclick=()=>{
+  paused=false; listeningAction=null; $('pause').classList.remove('open');
+  $('resumeBtn').textContent='RESUME';
+  if(started) renderer.domElement.requestPointerLock();
+};
+$('bindResetBtn').onclick=()=>{ binds=Object.assign({},DEFAULT_BINDS); buildBindList(); };
+$('titleBindBtn').onclick=()=>{ openPause(); $('resumeBtn').textContent='CLOSE'; };
+
+// physics + movement
+function movePlayer(dt){
+  if(paused) return;
+  // gravity always
+  player.vy-=14*dt;
+  player.y+=player.vy*dt;
+  const sup=solidTopAt(player.pos.x,player.pos.z,player.y - player.vy*dt + .2);
+  if(player.y<=sup){
+    player.y=sup;
+    if(player.vy<-7) thud();
+    player.vy=0; player.grounded=true;
+  } else player.grounded=false;
+
+  if(!player.canMove) return;
+  const sprint=keys[binds.sprint];
+  const speed=sprint?6.4:3.4;
+  let fx=0,fz=0;
+  if(keys[binds.forward]) fz-=1;
+  if(keys[binds.back])    fz+=1;
+  if(keys[binds.left])    fx-=1;
+  if(keys[binds.right])   fx+=1;
+  const len=Math.hypot(fx,fz);
+  if(len>0){
+    fx/=len; fz/=len;
+    const s=Math.sin(player.yaw), c=Math.cos(player.yaw);
+    player.pos.x+=(fx*c+fz*s)*speed*dt;
+    player.pos.z+=(-fx*s+fz*c)*speed*dt;
+    if(player.grounded) player.bob+=dt*(sprint?13:8);
+  }
+  // wall collisions
+  const r=.32;
+  for(const s of solids){
+    if(player.y>=s.y2-.001) continue;        // on top
+    if(player.y+1.45<=s.y1) continue;        // below
+    const px=player.pos.x, pz=player.pos.z;
+    if(px>s.x1-r&&px<s.x2+r&&pz>s.z1-r&&pz<s.z2+r){
+      const d=[px-(s.x1-r),(s.x2+r)-px,pz-(s.z1-r),(s.z2+r)-pz];
+      const m=Math.min(...d);
+      if(m===d[0]) player.pos.x=s.x1-r;
+      else if(m===d[1]) player.pos.x=s.x2+r;
+      else if(m===d[2]) player.pos.z=s.z1-r;
+      else player.pos.z=s.z2+r;
+    }
+  }
+  // world bounds
+  player.pos.x=Math.max(-70,Math.min(70,player.pos.x));
+  player.pos.z=Math.max(-90,Math.min(30,player.pos.z));
+}
+
+function tryJump(){
+  if(player.canMove&&player.grounded&&!paused){
+    player.vy=5.1; player.grounded=false; whoosh();
+  }
+}
+function tryMelee(){
+  if(!player.canMove||paused||swingT>=0||!vm.visible) return;
+  swingT=0; whoosh();
+  // hit check at mid-swing handled in update
+}
+
+function onAction(code){
+  if(code===binds.jump) tryJump();
+  if(code===binds.melee) tryMelee();
+  if(code===binds.interact){
+    if($('narration').style.display==='flex'){ advanceNarr(); return; }
+    if($('dlg').classList.contains('show')){ advanceDialogue(); return; }
+    interact();
+  }
+}
+
+let shake=0;
+function updateCamera(dt){
+  const bobY=player.grounded?Math.sin(player.bob)*.035:0;
+  camera.position.set(player.pos.x, player.y+player.eye+bobY, player.pos.z);
+  camera.rotation.order='YXZ';
+  camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
+  if(shake>0){
+    camera.position.x+=(Math.random()-.5)*shake;
+    camera.position.y+=(Math.random()-.5)*shake;
+    shake*=.92;
+  }
+  // viewmodel swing
+  if(swingT>=0){
+    swingT+=dt;
+    const t=swingT/.28;
+    if(t>=1){ swingT=-1; vm.rotation.set(.1,-.15,0); vm.position.set(.32,-.3,-.55); }
+    else{
+      const k=Math.sin(t*Math.PI);
+      vm.rotation.set(.1-k*1.1, -.15+k*.5, -k*.4);
+      vm.position.set(.32-k*.18,-.3+k*.05,-.55-k*.15);
+      if(t>.35&&t<.55&&!vm.userData.hitDone){ vm.userData.hitDone=true; meleeHit(); }
+    }
+  } else vm.userData.hitDone=false;
+}
+
+function meleeHit(){
+  const fwd=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); fwd.y=0; fwd.normalize();
+  for(const d of dummies){
+    if(d.userData.down) continue;
+    const to=new THREE.Vector3().subVectors(d.position,player.pos); to.y=0;
+    const dist=to.length();
+    if(dist<2.3 && to.normalize().dot(fwd)>.55){
+      d.userData.hp--;
+      d.userData.tilt=.5;
+      d.userData.body.material.emissive=new THREE.Color(0xff6633);
+      d.userData.body.material.emissiveIntensity=.8;
+      setTimeout(()=>{d.userData.body.material.emissiveIntensity=0;},120);
+      thud(); shake=Math.max(shake,.03);
+      if(d.userData.hp<=0){
+        d.userData.down=true;
+        blip(140,.4,.18,'triangle');
+        meleeProgress();
+      }
+      return;
+    }
+  }
+}
+
+// ================= UI HELPERS =================
+function objective(t){
+  const o=$('objective');
+  if(!t){o.classList.remove('show');return;}
+  o.textContent=t; o.classList.add('show'); blip(880,.1,.06);
+}
+function prompt(t){
+  const p=$('prompt');
+  if(!t){p.classList.remove('show');return;}
+  p.innerHTML=t; p.classList.add('show');
+}
+function toast(t,good,ms){
+  const x=$('toast'); x.textContent=t;
+  x.classList.toggle('good',!!good); x.classList.add('show');
+  setTimeout(()=>x.classList.remove('show'),ms||2400);
+}
+function fade(b,s){
+  const f=$('fade'); f.style.transition=`opacity ${s||1.4}s ease`;
+  f.style.opacity=b?1:0;
+}
+function cine(on){document.body.classList.toggle('cine',on);}
+
+// dialogue
+let dlgQueue=[],dlgIdx=0,dlgTyping=false,dlgCb=null;
+function startDialogue(lines,cb){
+  dlgQueue=lines;dlgIdx=0;dlgCb=cb;
+  $('dlg').classList.add('show');cine(true);
+  $('dlgNext').textContent=keyLabel(binds.interact)+' — CONTINUE';
+  showLine();
+}
+function showLine(){
+  const L=dlgQueue[dlgIdx];
+  if(!L){endDialogue();return;}
+  $('dlgWho').textContent=L.who||'';
+  const el=$('dlgText'); el.textContent=''; dlgTyping=true;
+  let i=0;const txt=L.text;
+  (function type(){
+    if(dlgIdx>=dlgQueue.length) return;
+    if(i<txt.length&&dlgTyping){
+      el.textContent+=txt[i++];
+      if(i%3===0)blip(420+Math.random()*120,.02,.015,'square');
+      setTimeout(type,18);
+    } else dlgTyping=false;
+  })();
+}
+function advanceDialogue(){
+  if(dlgTyping){dlgTyping=false;$('dlgText').textContent=dlgQueue[dlgIdx].text;return;}
+  dlgIdx++;showLine();
+}
+function endDialogue(){
+  $('dlg').classList.remove('show');cine(false);
+  const cb=dlgCb;dlgCb=null;if(cb)cb();
+}
+
+// narration
+let narrLines=[],narrIdx=0,narrCb=null;
+function narrate(lines,cb){
+  narrLines=lines;narrIdx=0;narrCb=cb;
+  $('narration').style.display='flex';
+  $('narrSkip').textContent=keyLabel(binds.interact)+' — CONTINUE';
+  showNarr();
+}
+function showNarr(){
+  const t=$('narrText');t.style.opacity=0;
+  setTimeout(()=>{t.textContent=narrLines[narrIdx];
+    t.style.transition='opacity 1.2s';t.style.opacity=1;},350);
+}
+function advanceNarr(){
+  narrIdx++;
+  if(narrIdx>=narrLines.length){
+    $('narration').style.display='none';
+    const cb=narrCb;narrCb=null;if(cb)cb();
+  } else showNarr();
+}
+
+// ================= GAME FLOW =================
+let state='title',stateT=0,started=false;
+let runTimer=0,timerOn=false;
+const RUN_LIMIT=75;
+let dummiesDown=0;
+
+function setState(s){state=s;stateT=0;}
+
+$('startBtn').onclick=()=>{
+  initAudio(); started=true;
+  $('title').classList.add('hidden');
+  document.body.classList.add('playing');
+  renderer.domElement.requestPointerLock();
+  narrate([
+    "Two years have passed. You are eight years old, and Calder's Hope is a word you are no longer permitted to say.",
+    "Camp Caldera, planet Veld. Seventy-four children. One instructor. Zero exceptions.",
+    "Reveille is at 0430. It is 0429."
+  ], formation);
+};
+$('replayBtn').onclick=()=>location.reload();
+
+function formation(){
+  fade(false,1.8);
+  player.pos.set(0,0,8); player.y=0; player.yaw=Math.PI; player.pitch=0;
+  player.canMove=false; lookOnly=true;
+  setState('formation');
+  setTimeout(()=>{
+    startDialogue([
+      {who:'MASTER INSTRUCTOR KRELL', text:"Eyes front. You are not children anymore. Children have parents. You have me."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"The course behind me decides whether we keep feeding you. Hurdles. Platforms. The beam. Ring the bell."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"Seventy-five seconds. Trainees who can't clear an obstacle go around and lose the time. Trainees who fall in the mud start over."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"On my mark, Korso."},
+    ], startRun1);
+  }, 1900);
+}
+
+function countdown(cb){
+  let n=3;const cd=$('countdown');
+  (function tick(){
+    if(n>0){
+      cd.textContent=n;cd.style.opacity=1;blip(520,.12,.12,'triangle');
+      setTimeout(()=>cd.style.opacity=0,650);
+      n--;setTimeout(tick,1000);
+    } else {
+      cd.textContent='GO';cd.style.opacity=1;blip(1040,.25,.15,'triangle');
+      setTimeout(()=>cd.style.opacity=0,700);
+      cb();
+    }
+  })();
+}
+
+function resetToStart(){
+  player.pos.set(0,0,4); player.y=0; player.vy=0; player.yaw=Math.PI;
+}
+
+function startRun1(){
+  resetToStart();
+  objective('OBSTACLE COURSE — RING THE BELL UNDER 75s');
+  prompt(`${keyLabel(binds.sprint)} SPRINT &nbsp;·&nbsp; ${keyLabel(binds.jump)} JUMP`);
+  setTimeout(()=>prompt(null),4500);
+  countdown(()=>{
+    player.canMove=true;lookOnly=false;
+    runTimer=0;timerOn=true;$('timer').classList.add('show');
+    setState('run1');
+  });
+}
+
+function startRun2(){
+  resetToStart();
+  bram.visible=true; bram.position.set(-1.5,0,4);
+  bramWPIdx=0; bramDone=false;
+  objective('RUN IT AGAIN — CROSS WITH BRAM, NOT WITHOUT HIM');
+  countdown(()=>{
+    player.canMove=true;lookOnly=false;
+    runTimer=0;timerOn=true;$('timer').classList.add('show');
+    setState('run2');
+  });
+}
+
+// Bram's path (he clambers — scripted, slow)
+const bramPath=[
+  [-1.5,-8],[0,-10],[0,-16],[0,-22],[0,-29],[0,-33],[0,-38],
+  [0,-44],[0,-50.5],[0,-56],[0,-60.5]
+];
+let bramWPIdx=0,bramDone=false;
+function bramUpdate(dt){
+  if(bramDone) return;
+  const wp=bramPath[bramWPIdx];
+  if(!wp){bramDone=true;return;}
+  const tx=wp[0],tz=wp[1];
+  const dx=tx-bram.position.x,dz=tz-bram.position.z;
+  const d=Math.hypot(dx,dz);
+  if(d<.3){bramWPIdx++;return;}
+  const sp=1.9;
+  bram.position.x+=dx/d*sp*dt;
+  bram.position.z+=dz/d*sp*dt;
+  // he clambers: snap-to-top with smoothing so he visibly climbs hurdles/platforms
+  const climbTarget=solidTopAt(bram.position.x,bram.position.z,bram.position.y+1.3);
+  bram.position.y+=(climbTarget-bram.position.y)*Math.min(1,dt*5);
+  bram.rotation.y=Math.atan2(dx,dz);
+}
+
+function interact(){
+  // bell
+  const nearBell=player.pos.distanceTo(BELL)<2.6;
+  if(state==='run1'&&nearBell){
+    timerOn=false;$('timer').classList.remove('show');
+    blip(1560,.7,.18,'triangle');blip(2080,.9,.1,'triangle');
+    player.canMove=false;lookOnly=true;prompt(null);objective(null);
+    if(runTimer>RUN_LIMIT){
+      toast(`${runTimer.toFixed(1)}s — TOO SLOW. AGAIN.`);
+      setTimeout(()=>{fade(true,.8);setTimeout(()=>{fade(false,.8);startRun1();},900);},1800);
+      return;
+    }
+    setState('postRun');
+    startDialogue([
+      {who:'MASTER INSTRUCTOR KRELL', text:`${runTimer.toFixed(1)} seconds. Fastest in your intake. Fastest we've ever recorded for an eight-year-old, in fact.`},
+      {who:'DANE', text:"Told you."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"And your squad finished dead last. Holt is still hanging off the second platform."},
+      {who:'DANE', text:"That's not my fault. I won."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"Nobody wins alone, Korso. Out there, your squad's time is your time. Your squad's blood is your blood. You fail together."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"Again. This time you ring that bell with Holt beside you. Not before him. Not without him."},
+    ], startRun2);
+    return;
+  }
+  if(state==='run2'&&nearBell){
+    if(bram.position.distanceTo(BELL)>7){
+      toast('WAIT FOR BRAM.');
+      blip(220,.2,.1,'sawtooth');
+      return;
+    }
+    timerOn=false;$('timer').classList.remove('show');
+    blip(1560,.7,.18,'triangle');
+    player.canMove=false;lookOnly=true;objective(null);
+    setState('postRun');
+    startDialogue([
+      {who:'BRAM', text:"...You didn't have to wait at the beam. I saw you stop."},
+      {who:'DANE', text:"Krell said—"},
+      {who:'BRAM', text:"Yeah. Krell said. ...Thanks anyway."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"Acceptable, Korso. Don't look so pleased — your time was eleven seconds worse and somehow worth more."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"Combat pit. Now. All of you."},
+    ], meleeIntro);
+    return;
+  }
+}
+
+function meleeIntro(){
+  fade(true,.8);
+  setTimeout(()=>{
+    player.pos.set(PIT.x,0,PIT.z+6);player.y=0;player.yaw=Math.PI;
+    krell.position.set(PIT.x+6,0,PIT.z+5);
+    bram.position.set(PIT.x-6,0,PIT.z+5);bram.rotation.y=2.5;
+    vela.visible=true;vela.position.set(PIT.x-7,0,PIT.z+3);
+    fade(false,.8);
+    startDialogue([
+      {who:'MASTER INSTRUCTOR KRELL', text:"A weapon can jam. A weapon can be dropped, taken, emptied. Your hands cannot."},
+      {who:'MASTER INSTRUCTOR KRELL', text:"Baton up. Four dummies. Put every one of them on the ground."},
+    ], ()=>{
+      vm.visible=true;
+      player.canMove=true;lookOnly=false;
+      setState('melee');
+      objective('COMBAT PIT — DROP ALL FOUR DUMMIES');
+      prompt(`${keyLabel(binds.melee)} — STRIKE`);
+      setTimeout(()=>prompt(null),4000);
+    });
+  },900);
+}
+
+function meleeProgress(){
+  dummiesDown++;
+  toast(`${dummiesDown} / 4 DOWN`,true,1300);
+  if(dummiesDown>=4){
+    player.canMove=false;lookOnly=true;objective(null);
+    setState('postRun');
+    setTimeout(()=>{
+      startDialogue([
+        {who:'MASTER INSTRUCTOR KRELL', text:"Enough. You hit like a furious eight-year-old, which is exactly what you are. We'll fix the form. The fury we keep."},
+        {who:'MASTER INSTRUCTOR KRELL', text:"Chow. Lights out at 2100. Tomorrow we do all of it again, faster."},
+      ], evening);
+    },700);
+  }
+}
+
+function evening(){
+  fade(true,1.2);
+  setTimeout(()=>{
+    // night lighting
+    scene.background=new THREE.Color(0x10141f);
+    scene.fog=new THREE.Fog(0x10141f,40,180);
+    hemi.intensity=.18;sun.intensity=.08;
+    floods.forEach(f=>f.intensity=1.3);
+    vm.visible=false;
+    player.pos.set(-30,0,-38);player.y=0;player.yaw=-1.6;
+    bram.position.set(-32.5,0,-39);bram.rotation.y=1.4;
+    vela.position.set(-31,0,-41);vela.rotation.y=.4;
+    krell.position.set(40,0,-10);
+    fade(false,1.6);
+    player.canMove=false;lookOnly=true;
+    setTimeout(()=>{
+      startDialogue([
+        {who:'VELA', text:"They say there's a war coming. Out past the rim. That's why they took us."},
+        {who:'BRAM', text:"My dad always said the frontier's quiet."},
+        {who:'VELA', text:"...Your dad thinks you're dead, Bram."},
+        {who:'', text:"Nobody says anything for a while. The floodlights hum. Somewhere a sentry changes shift."},
+        {who:'DANE', text:"Then we get strong. Strong enough that nobody ever decides anything for us again."},
+        {who:'VELA', text:"That a promise, Korso?"},
+        {who:'DANE', text:"It's a fact."},
+        {who:'VELA', text:"...Race you to the fence tomorrow."},
+      ], epilogue);
+    },1700);
+  },1300);
+}
+
+function epilogue(){
+  fade(true,1.5);
+  setTimeout(()=>{
+    narrate([
+      "Entry 002, addendum. Subject integration: successful. Squad cohesion: forming faster than projected.",
+      "Voss, personal log: He waited at the beam today. Nobody ordered him to wait at the beam. Only to finish together.",
+      "We train the body first. The rest follows. It always follows.",
+      "Eight more years of this remain. Then the hard part."
+    ],()=>{
+      setState('end');
+      document.body.classList.remove('playing');
+      document.exitPointerLock();
+      $('endScreen').classList.remove('hidden');
+    });
+  },1600);
+}
+
+// ================= MAIN LOOP =================
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05);
+  stateT+=dt;
+
+  if(!paused){
+    movePlayer(dt);
+    if(timerOn){
+      runTimer+=dt;
+      $('timer').textContent=runTimer.toFixed(1);
+      $('timer').classList.toggle('late', state==='run1'&&runTimer>RUN_LIMIT);
+    }
+    if(state==='run2') bramUpdate(dt);
+    if((state==='run1'||state==='run2') && player.pos.distanceTo(BELL)<2.6)
+      prompt(keyLabel(binds.interact)+' — RING THE BELL');
+    else if(state==='run1'||state==='run2') prompt(null);
+    // dummy tilt recovery / fall
+    dummies.forEach(d=>{
+      const u=d.userData;
+      if(u.down){
+        d.rotation.x=Math.min(d.rotation.x+dt*3, Math.PI/2*.92);
+      } else if(u.tilt>0){
+        u.tilt-=dt*2;
+        d.rotation.x=Math.sin(u.tilt*6)*.12;
+      }
+    });
+  }
+  updateCamera(dt);
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>
